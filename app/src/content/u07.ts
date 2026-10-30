@@ -104,10 +104,10 @@ export const u07: Unit = {
           solutions: [
             "induction n with\n| zero => decide\n| succ n ih => rw [pow2]; omega",
             "induction n with\n| zero => decide\n| succ n ih => simp [pow2, ih]",
-            "induction n with\n| zero => rfl\n| succ n ih => simp [pow2]; omega",
+            "induction n with\n| zero => simp [pow2]\n| succ n ih => simp [pow2]; omega",
             "induction n with\n| zero => decide\n| succ n ih => unfold pow2; omega",
           ],
-          wrong: ["decide", "omega", "induction n with\n| zero => decide\n| succ n ih => omega"],
+          wrong: ["decide", "omega", "induction n with\n| zero => decide\n| succ n ih => omega", "induction n with\n| zero => rfl\n| succ n ih => rw [pow2]; omega"],
           explain: "Base case: `0 < 1`, by `decide`. Step: unfold to `0 < 2 * pow2 n`, and with `ih : 0 < pow2 n` that's linear arithmetic. Without unfolding, `omega` sees `pow2 (n + 1)` as a mystery number.",
           hint: "Same shape as before: base case, then unfold and use `ih`.",
         },

@@ -9,9 +9,11 @@ export type Status = "idle" | "starting" | "ready" | "failed" | "unsupported";
 
 export const supported = () => globalThis.crossOriginIsolated === true && typeof SharedArrayBuffer === "function";
 
-// A check that runs longer than this is stuck (`#eval` of a loop, a huge
-// `decide`): the worker is thrown away and Lean boots again.
-const TIMEOUT_MS = 30_000;
+// A check that runs longer than this is stuck: the worker is thrown away,
+// Lean boots again (about 2 s), and the check runs once more. A second
+// timeout is reported: that code probably loops (`#eval` of a loop, a huge
+// `decide`).
+const TIMEOUT_MS = 15_000;
 
 // A tab the OS kills while Lean boots (out of memory, on a phone) reloads into
 // the same screen; this mark stops it from booting again in a loop.
@@ -33,6 +35,9 @@ const crashedBefore = (() => {
 let status: Status = !supported() ? "unsupported" : crashedBefore ? "failed" : "idle";
 let detail = crashedBefore ? "The tab closed while Lean was starting, probably out of memory." : "";
 let worker: Worker | null = null;
+// The worker asked to be replaced (see BUDGET in lean-worker.js): done
+// between checks, so nothing in flight is lost.
+let recycleSoon = false;
 let booting: Promise<boolean> | null = null;
 let nextId = 1;
 const pending = new Map<number, { resolve: (m: Message[]) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>();
@@ -74,6 +79,7 @@ export function start(): Promise<boolean> {
     w.onerror = (e) => fail(e.message || "The Lean worker crashed.");
     w.onmessage = ({ data }) => {
       if (data.type === "progress") set("starting", data.text);
+      else if (data.type === "recycle") recycleSoon = true;
       else if (data.type === "ready") {
         mark(false);
         set("ready");
@@ -94,6 +100,7 @@ export function start(): Promise<boolean> {
 
 // Forget a failed or stuck Lean and allow another boot.
 export function retry() {
+  recycleSoon = false;
   mark(false);
   worker?.terminate();
   worker = null;
@@ -105,12 +112,26 @@ export function retry() {
 // Check one Lean file: parse errors, then everything elaboration says. If Lean
 // itself fails (not the code), it's restarted and the check runs once more.
 export async function check(code: string): Promise<Message[]> {
-  const first = await checkOnce(code);
+  let first: Message[];
+  try {
+    first = await checkOnce(code);
+  } catch (e) {
+    if (!(e instanceof Timeout)) throw e;
+    console.warn("[lean] check timed out, restarting Lean and trying once more");
+    return checkOnce(code);
+  } finally {
+    if (recycleSoon && pending.size === 0) {
+      retry();
+      start();
+    }
+  }
   if (!first.some((m) => m.internal)) return first;
   console.warn("[lean] internal failure, restarting:", first.find((m) => m.internal)?.text);
   retry();
   return checkOnce(code);
 }
+
+class Timeout extends Error {}
 
 async function checkOnce(code: string): Promise<Message[]> {
   if (!(await start()) || !worker) throw new Error(detail || "Lean isn't available in this browser.");
@@ -119,7 +140,7 @@ async function checkOnce(code: string): Promise<Message[]> {
     const id = nextId++;
     const timer = setTimeout(() => {
       pending.delete(id);
-      reject(new Error(`Lean gave up after ${TIMEOUT_MS / 1000} s. Does something loop forever?`));
+      reject(new Timeout(`Lean gave up after ${TIMEOUT_MS / 1000} s. Does something loop forever?`));
       retry();
       start();
     }, TIMEOUT_MS);

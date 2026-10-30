@@ -288,7 +288,24 @@ function parseErrors(code) {
   }
 }
 
+// Each equation lemma Lean generates for a definition of yours uses up
+// something in this runtime that never comes back: after roughly 35 to 45 of
+// them (measured: 38 checks unfolding one function each, 13 unfolding three,
+// 8 unfolding six), the next one hangs for good. So the worker keeps a budget,
+// counting the distinct names each check unfolds, and asks to be replaced
+// (`recycle`) well before the limit. A fresh Lean boots in about 2 s.
+const BUDGET = 20;
+let spent = 0;
+function unfoldCost(code) {
+  const names = new Set();
+  for (const m of code.matchAll(/\b(?:simp(?:_all)?(?:\s+only)?|dsimp(?:\s+only)?|rw|rewrite|erw|unfold|delta)\b\s*(\[[^\]]*\]|[^\n;]*)/g)) {
+    for (const id of m[1].matchAll(/[A-Za-z_][\w.']*/g)) if (!/^(at|only|with|by|h|ih|this|←|Nat|List)$/.test(id[0])) names.add(id[0]);
+  }
+  return names.size;
+}
+
 function check(code) {
+  spent += unfoldCost(code);
   const res = compile(code);
   if (!res.ok) return res;
   const seen = new Set(res.messages.filter((m) => m.severity === "error").map((m) => `${m.line}:${m.text}`));
@@ -308,5 +325,6 @@ self.onmessage = async ({ data }) => {
     post({ type: "result", id: data.id, ...compile(data.code) });
   } else if (data.type === "check") {
     post({ type: "result", id: data.id, ...check(data.code) });
+    if (spent >= BUDGET) post({ type: "recycle" });
   }
 };

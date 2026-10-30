@@ -121,7 +121,7 @@ export const u12: Unit = {
         {
           id: "u12-l1-e5",
           kind: "proof",
-          title: "The smart constructor is honest",
+          title: "The smart constructor keeps its word",
           body: "Now the spec: `mkAdd a b` must mean the same as `add a b`. Its `match` has four overlapping cases, and `split` gives you one goal per case, each with the match already resolved. Then one tactic, run on `all_goals`, finishes them.",
           prompt: "Finish every case.",
           template: EXPR + "\n" + MKADD + "\ntheorem eval_mkAdd (a b : Expr) : eval (mkAdd a b) = eval a + eval b := by\n  unfold mkAdd\n  split\n  all_goals ___",
@@ -146,8 +146,8 @@ export const u12: Unit = {
             EVAL_MKADD +
             "\ntheorem simplify_ok (e : Expr) : eval (simplify e) = eval e := by\n  induction e with\n  | num n => rfl\n  | add a b iha ihb => ___\n  | mul a b iha ihb => simp [simplify, eval, iha, ihb]",
           solutions: ["simp [simplify, eval_mkAdd, eval, iha, ihb]", "rw [simplify, eval_mkAdd, iha, ihb]; rfl", "simp [simplify, eval_mkAdd, eval, *]"],
-          wrong: ["simp [simplify, eval]", "simp [simplify, eval_mkAdd, eval]", "rfl"],
-          explain: "Unfold `simplify` to get `eval (mkAdd (simplify a) (simplify b))`, rewrite with `eval_mkAdd`, then the induction hypotheses turn `eval (simplify a)` into `eval a`. Leave out `eval_mkAdd` and `simp` is stuck on the `match` inside `mkAdd`; leave out `iha, ihb` and it's stuck on `eval (simplify a)`.",
+          wrong: ["simp [simplify, eval]", "simp [simplify, eval_mkAdd, eval]", "rw [simplify, iha, ihb]"],
+          explain: "Unfold `simplify` to get `eval (mkAdd (simplify a) (simplify b))`, rewrite with `eval_mkAdd`, then the induction hypotheses turn `eval (simplify a)` into `eval a`. Rewriting with `iha` before `eval_mkAdd` fails: `eval (simplify a)` doesn't appear until `eval_mkAdd` splits the sum. Leave out `eval_mkAdd` and `simp` is stuck on the `match` inside `mkAdd`; leave out `iha, ihb` and it's stuck on `eval (simplify a)`.",
           hint: "You need `simplify`, `eval_mkAdd`, `eval`, and both hypotheses.",
         },
       ],

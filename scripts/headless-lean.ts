@@ -28,21 +28,47 @@ const CHROMES = [
   "/usr/bin/chromium-browser",
 ].filter(Boolean) as string[];
 
+// One Lean worker runs the jobs in order, replaced when it asks to be
+// (`recycle`, see BUDGET in lean-worker.js) and when a job hangs (then the job
+// runs once more on a fresh worker), the same way app/src/lean/lean.ts does.
 const PAGE = `<script type="module">
 const post = (path, body) => fetch(path, { method: "POST", body: JSON.stringify(body) });
 const jobs = await (await fetch("/jobs")).json();
-const w = new Worker("/lean-worker.js");
-let next = 1;
+const TIMEOUT_MS = 20000;
+let w, recycle = false, next = 1;
 const pending = new Map();
-const call = (msg) => new Promise((r) => (pending.set(next, r), w.postMessage({ ...msg, id: next++ })));
-w.onmessage = async ({ data }) => {
-  if (data.type === "error") return post("/done", { error: data.text });
-  if (data.type === "result") return pending.get(data.id)(data);
-  if (data.type !== "ready") return;
-  for (const [i, src] of jobs.entries()) await post("/result", { i, ...(await call({ type: "check", code: src })) });
+function boot() {
+  w?.terminate();
+  recycle = false;
+  w = new Worker("/lean-worker.js");
+  return new Promise((ready, fail) => {
+    w.onmessage = ({ data }) => {
+      if (data.type === "ready") ready();
+      else if (data.type === "error") fail(new Error(data.text));
+      else if (data.type === "recycle") recycle = true;
+      else if (data.type === "result") pending.get(data.id)?.(data);
+    };
+    w.postMessage({ type: "start", base: location.origin + "/lean" });
+  });
+}
+const call = (code) => new Promise((resolve) => {
+  const id = next++;
+  const timer = setTimeout(() => (pending.delete(id), resolve(null)), TIMEOUT_MS);
+  pending.set(id, (r) => (clearTimeout(timer), pending.delete(id), resolve(r)));
+  w.postMessage({ type: "check", id, code });
+});
+try {
+  await boot();
+  for (const [i, src] of jobs.entries()) {
+    let r = await call(src);
+    if (!r) { await boot(); r = (await call(src)) ?? { ok: false, error: "timed out twice" }; }
+    await post("/result", { i, ...r });
+    if (recycle) await boot();
+  }
   post("/done", {});
-};
-w.postMessage({ type: "start", base: location.origin + "/lean" });
+} catch (e) {
+  post("/done", { error: e.message });
+}
 </script>`;
 
 // A Chrome or Chromium binary: $CHROME, or the usual places on macOS and Linux.
