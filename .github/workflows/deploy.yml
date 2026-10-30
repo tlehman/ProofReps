@@ -1,0 +1,90 @@
+# Builds and deploys https://tobilehman.com/ProofReps on every push to main.
+# A push is the whole update story: the service worker picks up the new build
+# on the next visit and offers a reload.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      CI: "1"
+      CHROME: /usr/bin/google-chrome
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      # The Rust core: blaze runs the tests, cargo builds the wasm (blaze
+      # builds for the host only). core/rust-toolchain.toml pins the toolchain.
+      - name: Rust toolchain
+        run: rustup toolchain install 1.99.1 --profile minimal -c clippy -t wasm32-unknown-unknown
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.blaze
+            core/target
+          key: rust-${{ runner.os }}-${{ hashFiles('core/Cargo.lock', 'core/Cargo.toml', 'core/rust-toolchain.toml') }}
+      - name: Install blaze
+        run: |
+          # the version core/Cargo.toml pins ([workspace.metadata.blaze])
+          v=$(sed -n 's/^version = "\(.*\)"/\1/p' core/Cargo.toml | tail -1)
+          curl -fsSL https://ix.dev/blaze | sh -s -- --version "$v" \
+            || curl -fsSL https://ix.dev/blaze | sh -s -- --channel canary --version "$v"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - name: Test the core (blaze)
+        working-directory: core
+        run: BLAZE_TESTS=all blaze test
+      - name: Build the core to wasm (no reachable panics)
+        run: ./scripts/build-core.sh
+
+      # Lean, pinned by SHA-256 in scripts/lean.lock
+      - uses: actions/cache@v4
+        with:
+          path: app/public/lean
+          key: lean-${{ hashFiles('scripts/lean.lock') }}
+      - name: Fetch Lean
+        run: ./scripts/fetch-lean.sh
+
+      - name: Install
+        working-directory: app
+        run: bun install --frozen-lockfile
+      - name: Typecheck
+        working-directory: app
+        run: bun run typecheck
+      - name: Check every exercise against Lean
+        run: bun scripts/verify.ts
+      - name: Build the site
+        working-directory: app
+        run: bun x expo export --platform web && bun ../scripts/postexport.ts
+      - name: End-to-end (like a first visit on a phone)
+        run: bun scripts/e2e.ts
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

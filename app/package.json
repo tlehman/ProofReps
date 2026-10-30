@@ -1,0 +1,28 @@
+{
+  "name": "proofreps",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start --web",
+    "core": "../scripts/build-core.sh",
+    "lean": "../scripts/fetch-lean.sh",
+    "verify": "bun ../scripts/verify.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "bun run core && expo export --platform web && bun ../scripts/postexport.ts",
+    "serve": "bun ../scripts/serve.ts"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~58.0.15",
+    "expo": "~58.0.21",
+    "expo-status-bar": "~58.0.4",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-web": "^0.21.4"
+  },
+  "devDependencies": {
+    "@types/react": "~19.3.0",
+    "typescript": "~6.0.3"
+  }
+}

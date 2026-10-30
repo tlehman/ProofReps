@@ -1,0 +1,12 @@
+.DS_Store
+# Rust
+core/target/
+# Built by scripts/build-core.sh
+app/public/core.wasm
+# Fetched by scripts/fetch-lean.sh (pinned in scripts/lean.lock)
+app/public/lean/
+# Expo
+app/node_modules/
+app/.expo/
+app/dist/
+app/expo-env.d.ts

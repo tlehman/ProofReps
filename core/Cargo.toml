@@ -1,0 +1,50 @@
+[package]
+name = "proofreps-core"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "ProofReps' core, compiled to WebAssembly: spaced repetition, streaks, XP, and the text work around Lean answers. no_std, no dependencies, no reachable panics."
+publish = false
+
+[lib]
+# cdylib: the .wasm the web app loads. rlib: for tests.
+crate-type = ["cdylib", "rlib"]
+
+# No dependencies, on purpose. Keep it that way.
+[dependencies]
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+opt-level = "s"
+lto = true
+codegen-units = 1
+debug = false
+strip = true
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+missing_docs = "warn"
+
+# Anything that can panic is a compile error. The panic handler in lib.rs
+# backs this up when the .wasm is linked (scripts/check-no-panic.ts).
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+unreachable = "deny"
+todo = "deny"
+unimplemented = "deny"
+indexing_slicing = "deny"
+arithmetic_side_effects = "deny"
+integer_division = "deny"
+modulo_arithmetic = "deny"
+string_slice = "deny"
+panic_in_result_fn = "deny"
+missing_safety_doc = "deny"
+undocumented_unsafe_blocks = "deny"
+
+[workspace.metadata.blaze]
+version = "0.20261030.1"

@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "ProofReps",
+    "slug": "proofreps",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png",
+      "name": "ProofReps",
+      "shortName": "ProofReps",
+      "description": "Daily reps for Lean 4 and formal methods, checked by real Lean running in your browser.",
+      "themeColor": "#2b2272",
+      "backgroundColor": "#14102e"
+    },
+    "experiments": {
+      "baseUrl": "/ProofReps"
+    },
+    "plugins": [
+      "expo-status-bar"
+    ]
+  }
+}

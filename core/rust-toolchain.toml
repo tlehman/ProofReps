@@ -1,0 +1,5 @@
+# For cargo (clippy and the wasm build). blaze ignores this and uses its own pinned toolchain.
+[toolchain]
+channel = "1.99.1"
+targets = ["wasm32-unknown-unknown"]
+components = ["clippy"]
