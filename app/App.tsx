@@ -1,6 +1,6 @@
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useReducer, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { loadCore, type Core } from "./src/core";
 import { units } from "./src/content";
 import type { Exercise, Lesson as L } from "./src/content/types";
@@ -73,7 +73,7 @@ export default function App() {
 
   const home = () => setScreen({ name: "home" });
   return (
-    <View style={{ flex: 1, backgroundColor: t.bg, ...(Platform.OS === "web" ? ({ minHeight: "100dvh" } as object) : {}) }}>
+    <View style={{ flex: 1, minHeight: 0, backgroundColor: t.bg }}>
       <StatusBar style="auto" />
       {update ? (
         <Pressable onPress={() => location.reload()} style={{ backgroundColor: t.brand, padding: 10, alignItems: "center" }}>

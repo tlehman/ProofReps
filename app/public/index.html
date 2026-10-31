@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <title>ProofReps ⊢💪</title>
     <meta name="description" content="Daily reps in Lean 4 and formal methods. Short lessons, a streak, and every answer checked by real Lean running in your browser." />
     <meta name="theme-color" content="#2b2272" />
@@ -33,11 +33,23 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
     <style id="expo-reset">
-      html, body { height: 100%; }
-      body { overflow: hidden; margin: 0; background: #f7f6fb; }
+      /* The page itself never scrolls, zooms or slides sideways: it's pinned to
+         the viewport and each screen's ScrollView does the scrolling. The
+         padding keeps content out from under the status bar and home
+         indicator (viewport-fit=cover + black-translucent draw under them). */
+      html, body { height: 100%; overflow: hidden; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+      body { position: fixed; inset: 0; margin: 0; background: #f7f6fb; touch-action: pan-x pan-y; }
       @media (prefers-color-scheme: dark) { body { background: #14102e; } }
-      #root { display: flex; height: 100%; flex: 1; }
+      #root {
+        display: flex; flex: 1; height: 100%; box-sizing: border-box; overflow: hidden;
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      }
     </style>
+    <script>
+      // iOS Safari ignores user-scalable=no, so pinch zoom is cancelled by
+      // hand. (touch-action: pan-x pan-y on body stops double-tap zoom.)
+      document.addEventListener("gesturestart", function (e) { e.preventDefault(); }, { passive: false });
+    </script>
     <script>
       // Lean's WebAssembly needs SharedArrayBuffer, which needs a cross-origin
       // isolated page, which needs COOP/COEP headers that GitHub Pages can't

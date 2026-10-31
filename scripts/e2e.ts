@@ -114,6 +114,20 @@ try {
   ok("Lean booted in the tab", !!ready, `${((Date.now() - t0) / 1000).toFixed(1)} s`);
   await shot("1-home");
 
+  // The page is pinned to the viewport: nothing overflows sideways, and the
+  // home screen's own scroll view scrolls (the page itself never does).
+  const layout = await js(`(() => {
+    const wide = document.documentElement.scrollWidth > innerWidth || document.body.scrollWidth > innerWidth;
+    const sv = [...document.querySelectorAll("#root *")].find((e) => e.scrollHeight > e.clientHeight + 50 && getComputedStyle(e).overflowY !== "hidden");
+    if (!sv) return { wide, scrolls: false };
+    sv.scrollTop = 400;
+    const scrolls = sv.scrollTop > 0 && sv.getBoundingClientRect().bottom <= innerHeight + 1;
+    sv.scrollTop = 0;
+    return { wide, scrolls };
+  })()`);
+  ok("no sideways overflow", layout?.wide === false);
+  ok("the home screen scrolls vertically within the viewport", layout?.scrolls === true);
+
   // Unit 1, lesson 1: answer the three choice exercises, then the first fill.
   ok("opened lesson 1", !!(await click("Asking Lean")));
   for (const right of ['"hello" : String', "[0, 1, 4, 9, 16]", "0"]) {

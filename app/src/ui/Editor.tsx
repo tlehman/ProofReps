@@ -115,7 +115,7 @@ export function Editor({ value, onChange, onCursor, multiline = true, minLines =
         }}
         style={{
           fontFamily: mono,
-          fontSize: 15,
+          fontSize: 16, // under 16px, iOS zooms in on focus
           lineHeight: 22,
           color: t.codeInk,
           backgroundColor: t.code,
