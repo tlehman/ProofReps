@@ -10,6 +10,14 @@ export interface Card {
   answer?: string; // the learner's last accepted answer
 }
 
+// Where an unfinished lesson stands, so it resumes instead of restarting.
+export interface Spot {
+  queue: string[]; // exercise ids still to do, next first
+  done: number;
+  mistakes: number;
+  xp: number;
+}
+
 export interface State {
   v: 1;
   cards: Record<string, Card>;
@@ -21,11 +29,12 @@ export interface State {
   goal: number; // daily XP goal
   drafts: Record<string, string>; // exercise id -> unfinished answer
   playground: string;
+  spots: Record<string, Spot>; // lesson id -> unfinished lesson's position
 }
 
 const KEY = "proofreps:v1";
 
-export const empty = (): State => ({ v: 1, cards: {}, lessons: {}, xp: 0, streak: 0, lastDay: -1, daily: {}, goal: 30, drafts: {}, playground: "" });
+export const empty = (): State => ({ v: 1, cards: {}, lessons: {}, xp: 0, streak: 0, lastDay: -1, daily: {}, goal: 30, drafts: {}, playground: "", spots: {} });
 
 export function load(): State {
   try {

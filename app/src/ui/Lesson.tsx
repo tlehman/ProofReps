@@ -29,17 +29,24 @@ export function Lesson({
   onExit: () => void;
 }) {
   const t = useTheme();
-  const [queue, setQueue] = useState(() => exercises.map((e) => e.id));
-  const [done, setDone] = useState(0);
-  const [mistakes, setMistakes] = useState(0);
-  const [xp, setXp] = useState(0);
-  const [finished, setFinished] = useState<{ bonus: number } | null>(null);
   const byId = useMemo(() => new Map(exercises.map((e) => [e.id, e])), [exercises]);
+  // Resume a lesson left partway, dropping exercises the content no longer has.
+  const [spot] = useState(() => {
+    const s = lessonId ? state.spots[lessonId] : undefined;
+    const queue = s?.queue.filter((id) => byId.has(id)) ?? [];
+    return s && queue.length ? { ...s, queue, done: Math.min(s.done, exercises.length) } : null;
+  });
+  const [queue, setQueue] = useState(() => spot?.queue ?? exercises.map((e) => e.id));
+  const [done, setDone] = useState(spot?.done ?? 0);
+  const [mistakes, setMistakes] = useState(spot?.mistakes ?? 0);
+  const [xp, setXp] = useState(spot?.xp ?? 0);
+  const [finished, setFinished] = useState<{ bonus: number } | null>(null);
   const ex = byId.get(queue[0]);
   const total = exercises.length;
 
   const miss = (e: Ex) => {
     store.answer(core, state, e.id, kindOf(e), false);
+    if (lessonId) state.spots[lessonId] = { queue, done, mistakes: mistakes + 1, xp };
     setMistakes((m) => m + 1);
     commit();
   };
@@ -58,7 +65,10 @@ export function Lesson({
     if (!q.length) {
       const bonus = store.addXp(core, state, core.lessonBonus(mistakes));
       if (lessonId && !state.lessons[lessonId]) state.lessons[lessonId] = Date.now();
+      if (lessonId) delete state.spots[lessonId];
       setFinished({ bonus });
+    } else if (lessonId) {
+      state.spots[lessonId] = { queue: q, done: done + (o.correct ? 1 : 0), mistakes, xp: xp + earned };
     }
     commit();
     setQueue(q);
