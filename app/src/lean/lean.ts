@@ -54,10 +54,13 @@ function set(s: Status, d = "") {
   for (const f of listeners) f();
 }
 
+// A check cut off by a restart: not the code's fault, so check() runs it again.
+class Restarted extends Error {}
+
 function failAll(text: string) {
   for (const p of pending.values()) {
     clearTimeout(p.timer);
-    p.reject(new Error(text));
+    p.reject(new Restarted(text));
   }
   pending.clear();
 }
@@ -109,15 +112,27 @@ export function retry() {
   set(supported() ? "idle" : "unsupported");
 }
 
+// Checks run one at a time, probes and answers alike: two in the worker at once
+// would share one check's timeout, and a restart for one would cut off the
+// other ("Lean was restarted.").
+let chain: Promise<unknown> = Promise.resolve();
+function enqueue<T>(job: () => Promise<T>): Promise<T> {
+  const run = chain.then(job);
+  chain = run.catch(() => null);
+  return run;
+}
+
 // Check one Lean file: parse errors, then everything elaboration says. If Lean
 // itself fails (not the code), it's restarted and the check runs once more.
-export async function check(code: string): Promise<Message[]> {
+export const check = (code: string): Promise<Message[]> => enqueue(() => checkNow(code));
+
+async function checkNow(code: string): Promise<Message[]> {
   let first: Message[];
   try {
     first = await checkOnce(code);
   } catch (e) {
-    if (!(e instanceof Timeout)) throw e;
-    console.warn("[lean] check timed out, restarting Lean and trying once more");
+    if (!(e instanceof Timeout || e instanceof Restarted)) throw e;
+    console.warn("[lean] check was cut off, restarting Lean and trying once more:", (e as Error).message);
     return checkOnce(code);
   } finally {
     if (recycleSoon && pending.size === 0) {
@@ -150,15 +165,12 @@ async function checkOnce(code: string): Promise<Message[]> {
 }
 
 // Probes fire as the learner types; on each channel ("goal", "file") only the
-// newest one matters. They run one at a time, so a probe that's been overtaken
-// on its channel by a newer one is dropped (resolves to null) before it
-// reaches Lean.
+// newest one matters. They wait in the same queue as checks, so a probe that's
+// been overtaken on its channel by a newer one is dropped (resolves to null)
+// before it reaches Lean.
 const probeSeq = new Map<string, number>();
-let probeChain: Promise<unknown> = Promise.resolve();
 export function probe(channel: string, code: string): Promise<Message[] | null> {
   const mine = (probeSeq.get(channel) ?? 0) + 1;
   probeSeq.set(channel, mine);
-  const run = probeChain.then(() => (mine === probeSeq.get(channel) ? check(code) : null));
-  probeChain = run.catch(() => null);
-  return run;
+  return enqueue(() => (mine === probeSeq.get(channel) ? checkNow(code) : Promise.resolve(null)));
 }
