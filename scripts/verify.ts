@@ -1,5 +1,5 @@
-// Checks every exercise against the same in-browser Lean the app runs
-// (scripts/headless-lean.ts):
+// Checks every exercise against the same Lean the app's server runs (Lean 4
+// with Mathlib imported, server/src/pool.ts):
 //   fill / proof / fix: every solution passes, every `wrong` answer fails,
 //                       and a fix exercise's `start` fails
 //   choice:             `verify.src` compiles cleanly and prints each `expect`
@@ -9,7 +9,7 @@
 //   bun scripts/verify.ts u03 u04-l1-e2   # units, lessons or exercises by id prefix
 //   bun scripts/verify.ts app/src/content/u05.ts   # a unit file, whether or not index.ts lists it
 //
-// Needs scripts/fetch-lean.sh and scripts/build-core.sh run first.
+// Needs scripts/build-core.sh and the Lean build in server/lean (scripts/start.sh does both).
 import { join } from "node:path";
 import { loadCore } from "../app/src/core";
 import { resolve } from "node:path";
@@ -17,7 +17,7 @@ import { units as listed } from "../app/src/content";
 import type { Unit } from "../app/src/content/types";
 import { isFill, type Exercise } from "../app/src/content/types";
 import { judge, source, type Message, type Source } from "../app/src/lean/grade";
-import { compileAll } from "./headless-lean";
+import { checkAll } from "../server/src/pool";
 
 const core = await loadCore(await Bun.file(join(import.meta.dir, "../app/public/core.wasm")).arrayBuffer());
 const args = process.argv.slice(2);
@@ -75,23 +75,21 @@ for (const e of picked) {
   if (e.kind === "fix" && e.start) add("start", e.start, "fail");
 }
 
-const norm = (s: string) => s.replace(/\s+/g, " ").trim();
+// Mathlib prints `Nat` as `ℕ` (and `Int` as `ℤ`, ...): compare them as the same.
+const norm = (s: string) =>
+  s.replace(/ℕ/g, "Nat").replace(/ℤ/g, "Int").replace(/ℚ/g, "Rat").replace(/ℝ/g, "Real").replace(/\s+/g, " ").trim();
 const show = (ms: Message[]) => ms.map((m) => `    ${m.line ?? "-"} ${m.severity}: ${m.text.replaceAll("\n", "\n      ")}`).join("\n");
 const t = performance.now();
 process.stdout.write(`${picked.length} exercises, ${jobs.length} Lean checks `);
-const results = await compileAll(
+const results = await checkAll(
   jobs.map((j) => j.src),
-  () => process.stdout.write("."),
+  { size: Number(process.env.LEAN_WORKERS ?? 6), onEach: () => process.stdout.write(".") },
 );
 console.log(` ${((performance.now() - t) / 1000).toFixed(1)} s`);
 
 let passed = 0;
 for (const [i, j] of jobs.entries()) {
   const r = results[i];
-  if (!r?.ok) {
-    fail(j.id, `${j.what}: Lean failed: ${r?.error ?? "no result"}`);
-    continue;
-  }
   if (j.expect === "print") {
     const errors = r.messages.filter((m) => m.severity === "error");
     const out = norm(r.messages.filter((m) => m.severity === "information").map((m) => m.text).join("\n"));

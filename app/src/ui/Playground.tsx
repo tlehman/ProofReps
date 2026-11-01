@@ -92,7 +92,7 @@ export function Playground({ initial, onSave, onExit }: { initial: string; onSav
           <Text style={{ color: t.muted, fontSize: 26, fontWeight: "600" }}>‹</Text>
         </Pressable>
         <Text style={{ color: t.ink, fontSize: 20, fontWeight: "800", flex: 1 }}>Playground</Text>
-        <Text style={{ color: t.muted, fontSize: 13 }}>{status !== "ready" ? "starting Lean…" : busy ? "checking…" : "✓ checked"}</Text>
+        <Text style={{ color: t.muted, fontSize: 13 }}>{status === "failed" ? "Lean unreachable" : status !== "ready" ? "starting Lean…" : busy ? "checking…" : "✓ checked"}</Text>
         <Pressable onPress={() => setCode(SAMPLE)} hitSlop={8}>
           <Text style={{ color: t.brand, fontWeight: "700" }}>Reset</Text>
         </Pressable>
@@ -108,7 +108,7 @@ export function Playground({ initial, onSave, onExit }: { initial: string; onSav
           minLines={12}
         />
         {goal != null ? <GoalBox goals={goal} label={`Goal at line ${row + 1}`} /> : null}
-        {status === "unsupported" || status === "failed" ? <LeanTrouble /> : null}
+        {status === "failed" ? <LeanTrouble /> : null}
         {messages && !messages.length ? <Text style={{ color: t.good, fontWeight: "700" }}>No errors, no messages.</Text> : null}
         {messages ? <Diagnostics messages={messages} /> : null}
       </ScrollView>

@@ -1,0 +1,14 @@
+# The Lean the server runs: Mathlib, plus the Lean REPL (a long-lived process
+# that imports Mathlib once and then elaborates each check against that
+# environment in milliseconds). Both pinned to the toolchain in lean-toolchain.
+name = "proofreps"
+
+[[require]]
+name = "mathlib"
+git = "https://github.com/leanprover-community/mathlib4"
+rev = "v4.35.0"
+
+[[require]]
+name = "REPL"
+git = "https://github.com/leanprover-community/repl"
+rev = "v4.35.0"

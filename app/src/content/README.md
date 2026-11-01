@@ -9,10 +9,11 @@ Every exercise is checked by real Lean before it ships:
     bun scripts/verify.ts u05-l2                       # by id prefix, among the listed units
     bun scripts/verify.ts                              # everything
 
-It runs the same Lean the app runs (Lean 4, core only: `Init`, **no Mathlib, no Std imports**),
-in headless Chrome. A unit isn't done until it reports `0 problems`.
+It runs the same Lean the app's server runs: Lean 4 with **all of Mathlib already imported** (no
+`import` lines needed; Mathlib's names and notation are in scope, so pick names that don't clash).
+A unit isn't done until it reports `0 problems`.
 
-To try Lean by hand, put code in a file and run `bun scripts/headless-lean.ts file.lean`.
+To try Lean by hand, put code in a file and run `bun scripts/lean.ts file.lean`.
 It prints every message with its line, including parse errors.
 
 ## Ids and shape

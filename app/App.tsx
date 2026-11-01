@@ -1,6 +1,6 @@
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useReducer, useState } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 import { loadCore, type Core } from "./src/core";
 import { units } from "./src/content";
 import type { Exercise, Lesson as L } from "./src/content/types";
@@ -30,18 +30,14 @@ export default function App() {
   const [state, setState] = useState<store.State>(() => store.load());
   const [, rerender] = useReducer((n: number) => n + 1, 0);
   const [screen, setScreen] = useState<Screen>({ name: "home" });
-  const [update, setUpdate] = useState(false);
 
   useEffect(() => {
     fetch(asset("core.wasm"))
       .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`core.wasm: HTTP ${r.status}`))))
       .then(loadCore)
       .then(setCore, (e) => setError(String(e?.message ?? e)));
-    // Boot Lean right away so it's warm by the first answer.
+    // Find out right away whether the server's Lean is up.
     lean.start();
-    const onUpdate = () => setUpdate(true);
-    globalThis.addEventListener?.("proofreps-update", onUpdate);
-    return () => globalThis.removeEventListener?.("proofreps-update", onUpdate);
   }, []);
 
   // Mutations happen in place on `state`; commit saves and redraws.
@@ -75,11 +71,6 @@ export default function App() {
   return (
     <View style={{ flex: 1, minHeight: 0, backgroundColor: t.bg }}>
       <StatusBar style="auto" />
-      {update ? (
-        <Pressable onPress={() => location.reload()} style={{ backgroundColor: t.brand, padding: 10, alignItems: "center" }}>
-          <Text style={{ color: t.brandInk, fontWeight: "700" }}>A new version of ProofReps is ready. Tap to reload.</Text>
-        </Pressable>
-      ) : null}
       {screen.name === "home" ? (
         <Home
           core={core}

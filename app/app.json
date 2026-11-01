@@ -12,12 +12,9 @@
       "favicon": "./assets/favicon.png",
       "name": "ProofReps",
       "shortName": "ProofReps",
-      "description": "Daily reps for Lean 4 and formal methods, checked by real Lean running in your browser.",
+      "description": "Daily reps for Lean 4 and formal methods, checked by real Lean 4 and Mathlib on your own server.",
       "themeColor": "#2b2272",
       "backgroundColor": "#14102e"
-    },
-    "experiments": {
-      "baseUrl": "/ProofReps"
     },
     "plugins": [
       "expo-status-bar"

@@ -122,7 +122,7 @@ export function Home({
         </View>
       ))}
       <Text style={{ color: t.muted, fontSize: 12, textAlign: "center" }}>
-        Every answer is checked by Lean 4 running in this tab. Progress stays in this browser.
+        Every answer is checked by Lean 4 with Mathlib, running on the ProofReps server. Progress stays in this browser.
       </Text>
     </ScrollView>
   );
@@ -158,9 +158,8 @@ function LeanChip() {
   const text = {
     idle: "Lean: waiting",
     starting: `Lean: starting${detail ? ` (${detail})` : ""}`,
-    ready: "Lean 4 is running in this tab",
-    failed: `Lean stopped: ${detail}`,
-    unsupported: "Lean can't run in this browser (no SharedArrayBuffer)",
+    ready: "Lean 4 + Mathlib is running on the server",
+    failed: `Lean unreachable: ${detail}`,
   }[status];
   const color = status === "ready" ? t.good : status === "starting" || status === "idle" ? t.warn : t.bad;
   return (

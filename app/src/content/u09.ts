@@ -5,7 +5,7 @@ const WEEKDAY =
 const NEXT_PREV =
   "def next : Weekday → Weekday\n  | monday => tuesday | tuesday => wednesday | wednesday => thursday\n  | thursday => friday | friday => saturday | saturday => sunday | sunday => monday\n\ndef prev : Weekday → Weekday\n  | monday => sunday | tuesday => monday | wednesday => tuesday\n  | thursday => wednesday | friday => thursday | saturday => friday | sunday => saturday\n";
 const TREE =
-  "inductive Tree where\n  | leaf : Tree\n  | node : Tree → Nat → Tree → Tree\n\nopen Tree\n\ndef size : Tree → Nat\n  | leaf => 0\n  | node l _ r => size l + 1 + size r\n\ndef mirror : Tree → Tree\n  | leaf => leaf\n  | node l v r => node (mirror r) v (mirror l)\n";
+  "inductive BTree where\n  | leaf : BTree\n  | node : BTree → Nat → BTree → BTree\n\nopen BTree\n\ndef size : BTree → Nat\n  | leaf => 0\n  | node l _ r => size l + 1 + size r\n\ndef mirror : BTree → BTree\n  | leaf => leaf\n  | node l v r => node (mirror r) v (mirror l)\n";
 const POINT = "structure Point where\n  x : Nat\n  y : Nat\n  deriving Repr\n";
 
 export const u09: Unit = {
@@ -77,7 +77,7 @@ export const u09: Unit = {
           title: "Mirror twice",
           body: "Induction works on any inductive type. A `node` has **two** subtrees, so the case gives you two induction hypotheses: `| node l v r ihl ihr`. Then `simp [mirror, ihl, ihr]` unfolds `mirror` and uses both.",
           prompt: "Prove that mirroring twice gives back the original tree.",
-          template: TREE + "\ntheorem mirror_mirror (t : Tree) : mirror (mirror t) = t := by\n  ___",
+          template: TREE + "\ntheorem mirror_mirror (t : BTree) : mirror (mirror t) = t := by\n  ___",
           solutions: [
             "induction t with\n| leaf => rfl\n| node l v r ihl ihr => simp [mirror, ihl, ihr]",
             "induction t with\n| leaf => rfl\n| node l v r ihl ihr => rw [mirror, mirror, ihl, ihr]",
@@ -92,7 +92,7 @@ export const u09: Unit = {
           title: "Sizes in the mirror",
           body: "Mirroring swaps the subtrees, so the sum comes out in a different order: `size r + 1 + size l` against `size l + 1 + size r`. `simp` doesn't reorder this sum for you. Read the goal Lean says is unsolved.",
           prompt: "This proof stops one step short. Fix it.",
-          template: TREE + "\ntheorem size_mirror (t : Tree) : size (mirror t) = size t := by\n  induction t with\n  | leaf => rfl\n  | node l v r ihl ihr => ___",
+          template: TREE + "\ntheorem size_mirror (t : BTree) : size (mirror t) = size t := by\n  induction t with\n  | leaf => rfl\n  | node l v r ihl ihr => ___",
           start: "simp [size, mirror, ihl, ihr]",
           solutions: ["simp [size, mirror, ihl, ihr]; omega", "simp only [size, mirror]; omega", "rw [mirror, size, size, ihl, ihr]; omega"],
           wrong: ["rw [mirror, size, size, ihl, ihr]", "rfl"],

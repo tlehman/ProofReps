@@ -1,9 +1,9 @@
-// End-to-end check of the built site, the way a phone first meets it: served
-// like GitHub Pages (no COOP/COEP headers), in headless Chrome at phone size,
-// over the DevTools protocol (no test framework).
+// End-to-end check of the built site and the Lean server, the way a phone
+// meets it: the real server (server/src/main.ts, Lean + Mathlib), in headless
+// Chrome at phone size, over the DevTools protocol (no test framework).
 //
-//   1. the service worker installs and the page comes back cross-origin isolated
-//   2. Lean boots in the tab
+//   1. the page loads (no leftover service worker)
+//   2. the server's Lean reports ready
 //   3. a fill exercise: a wrong answer gets Lean's type error, a right one passes
 //   4. the playground shows a syntax error, a type error, a goal and #eval output
 //   5. progress survives a reload (localStorage)
@@ -12,7 +12,16 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { chromeFlags, findChrome } from "./headless-lean";
+import { existsSync } from "node:fs";
+
+function findChrome(): string {
+  const c = [process.env.CHROME, "/usr/bin/google-chrome-stable", "/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"].find(
+    (p) => p && existsSync(p),
+  );
+  if (!c) throw new Error("no Chrome found: set $CHROME");
+  return c;
+}
+const chromeFlags = (profile: string) => ["--headless=new", "--disable-gpu", "--no-first-run", `--user-data-dir=${profile}`, ...(process.env.CI ? ["--no-sandbox"] : [])];
 
 const shotsAt = process.argv.indexOf("--shots");
 const SHOTS = shotsAt > 0 ? process.argv[shotsAt + 1] : null;
@@ -21,7 +30,7 @@ const CHROME = findChrome();
 const PORT = 8791;
 const DEBUG = 9337;
 
-const server = Bun.spawn(["bun", join(import.meta.dir, "serve.ts")], { env: { ...process.env, PORT: String(PORT) }, stdout: "ignore", stderr: "inherit" });
+const server = Bun.spawn(["bun", join(import.meta.dir, "../server/src/main.ts")], { env: { ...process.env, PORT: String(PORT), LEAN_WORKERS: "2" }, stdout: "ignore", stderr: "inherit" });
 const profile = mkdtempSync(join(tmpdir(), "proofreps-e2e-"));
 const chrome = Bun.spawn(
   [CHROME, ...chromeFlags(profile), `--remote-debugging-port=${DEBUG}`, "--window-size=390,844", "about:blank"],
@@ -77,7 +86,9 @@ async function until(expr: string, ms = 60_000) {
 }
 async function shot(name: string) {
   if (!SHOTS) return;
-  const r = await send("Page.captureScreenshot", { format: "png" });
+  // headless Chrome sometimes never delivers a frame: don't let a screenshot hang the run
+  const r = await Promise.race([send("Page.captureScreenshot", { format: "png" }), Bun.sleep(10_000).then(() => null)]);
+  if (!r?.result?.data) return console.log(`  (no screenshot for ${name})`);
   writeFileSync(join(SHOTS, `${name}.png`), Buffer.from(r.result.data, "base64"));
 }
 const text = () => js("document.body.innerText");
@@ -105,13 +116,12 @@ try {
   await send("Page.enable");
   await send("Runtime.enable");
   await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
-  await send("Page.navigate", { url: `http://localhost:${PORT}/ProofReps/` });
-
-  const isolated = await until("crossOriginIsolated && !!navigator.serviceWorker.controller", 30_000);
-  ok("service worker took over and the page is cross-origin isolated", !!isolated);
   const t0 = Date.now();
-  const ready = await until(`document.body.innerText.includes("Lean 4 is running in this tab")`, 90_000);
-  ok("Lean booted in the tab", !!ready, `${((Date.now() - t0) / 1000).toFixed(1)} s`);
+  await send("Page.navigate", { url: `http://localhost:${PORT}/` });
+  const loaded = await until(`document.body.innerText.includes("ProofReps")`, 30_000);
+  ok("the page loaded", !!loaded);
+  const ready = await until(`document.body.innerText.includes("Lean 4 + Mathlib is running on the server")`, 180_000);
+  ok("the server's Lean (with Mathlib) is ready", !!ready, `${((Date.now() - t0) / 1000).toFixed(1)} s`);
   await shot("1-home");
 
   // The page is pinned to the viewport: nothing overflows sideways, and the

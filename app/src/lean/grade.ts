@@ -10,8 +10,7 @@ export interface Message {
   col?: number;
   endLine?: number;
   endCol?: number;
-  parse?: boolean; // from the parse pass: a syntax error
-  internal?: boolean; // Lean itself failed, not the code
+  parse?: boolean; // a syntax error, from Lean's parser
 }
 
 // Every declaration in the template gets a name and is checked with
@@ -46,7 +45,7 @@ export function judge({ names, guardLine }: Source, messages: Message[]): Verdic
   const errors = mine.filter((m) => m.severity === "error" || (m.severity === "warning" && /declaration uses [`']sorry/.test(m.text)));
   if (errors.length) return { kind: "error", messages: errors };
   const info = messages.filter((m) => m.severity === "information").map((m) => m.text).join("\n");
-  // the browser build prints names as `'_private.0.name'`
+  // private names may print as `'_private.0.name'`
   const proved = (x: string) =>
     new RegExp(`'(?:_private\\.(?:[^']*\\.)?\\d+\\.)?${esc(x)}' (does not depend on any axioms|depends on axioms: \\[(?![^\\]]*sorryAx))`).test(info);
   return names.every(proved) ? { kind: "ok", messages: mine } : { kind: "incomplete", messages: mine };

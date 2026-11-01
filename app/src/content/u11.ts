@@ -18,10 +18,10 @@ export const u11: Unit = {
           prompt: "What is the type of `five.property`?",
           options: ["five.val > 0", "Nat", "Bool", "{n : Nat // n > 0}"],
           answer: 0,
-          explain: "`.property` is the proof, so its type is the statement it proves: `five.val > 0`. `.val` is the plain `Nat`, here `5`. The pair is just data plus evidence.",
+          explain: "`.property` is the proof, so its type is the statement it proves: `five.val > 0`. `.val` is the plain `Nat`, here `5`. The pair is just data plus evidence. (With Mathlib loaded, Lean prints `five.val` as `↑five`: the coercion from the subtype to `Nat`.)",
           verify: {
             src: "def five : {n : Nat // n > 0} := ⟨5, by decide⟩\n\n#eval five.val\n#check five.property",
-            expect: ["5", "five.property : five.val > 0"],
+            expect: ["5", "five.property : ↑five > 0"],
           },
         },
         {
@@ -157,12 +157,12 @@ export const u11: Unit = {
           prompt: "Prove that dropping 2 elements shortens a nonempty list.",
           template: "def chunks (xs : List Nat) : List (List Nat) :=\n  if h : xs = [] then [] else xs.take 2 :: chunks (xs.drop 2)\ntermination_by xs.length\ndecreasing_by\n  ___",
           solutions: [
-            "cases xs with\n| nil => contradiction\n| cons x rest => simp; omega",
-            "cases xs with\n| nil => contradiction\n| cons x rest =>\n  simp\n  omega",
+            "cases xs with\n| nil => contradiction\n| cons x rest => simp",
+            "cases xs with\n| nil => contradiction\n| cons x rest =>\n  simp only [List.length_drop, List.length_cons]\n  omega",
             "simp\nhave := List.length_pos_iff.mpr h\nomega",
           ],
           wrong: ["omega", "simp\nomega", "simp"],
-          explain: "For `x :: rest`, `simp` turns the goal into `rest.length - 1 < rest.length + 1`, and `omega` finishes. For `[]`, `h : ¬[] = []` is absurd, so `contradiction`. Plain `simp; omega` fails: without `h`, `xs.length - 2 < xs.length` is false at `xs = []`.",
+          explain: "For `x :: rest`, the goal is `rest.length - 1 < rest.length + 1`: Mathlib's `simp` proves it outright (or `simp only [List.length_drop, List.length_cons]` gets you there and `omega` finishes). For `[]`, `h : ¬[] = []` is absurd, so `contradiction`. Plain `simp; omega` fails: without `h`, `xs.length - 2 < xs.length` is false at `xs = []`.",
           hint: "Start with `cases xs with`.",
         },
         {

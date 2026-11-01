@@ -1,6 +1,6 @@
 // One exercise. Choice exercises are graded on the spot (their options were
 // checked by Lean when the course was built). Everything else is graded by
-// the Lean running in this tab: any answer Lean accepts is right.
+// the server's Lean: any answer Lean accepts is right.
 import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import type { Core } from "../core";
@@ -232,11 +232,11 @@ function LeanExercise({ core, ex, draft, onDraft, onMiss, onDone }: ExerciseProp
           <Button
             label={leanBusy ? `Starting Lean${status.detail ? `: ${status.detail}` : ""}` : "Check"}
             busy={checking || leanBusy}
-            disabled={!answer.trim() || status.status === "unsupported" || status.status === "failed"}
+            disabled={!answer.trim() || status.status === "failed"}
             onPress={check}
           />
           {misses >= 2 ? <Button label="Show a solution" kind="ghost" onPress={() => setGaveUp(true)} /> : null}
-          {status.status === "unsupported" || status.status === "failed" ? <LeanTrouble /> : null}
+          {status.status === "failed" ? <LeanTrouble /> : null}
         </View>
       ) : (
         <Sheet good={ok} title={ok ? (missed.current ? "Got it" : "Correct!") : "Here's one solution"}>
@@ -258,16 +258,8 @@ export function LeanTrouble() {
   const { status, detail } = useLean();
   return (
     <View style={{ gap: 8 }}>
-      <Text style={{ color: t.muted, fontSize: 14 }}>
-        {status === "unsupported"
-          ? "Lean needs a browser that supports SharedArrayBuffer (current Chrome, Safari, Firefox or Edge). Reloading the page usually fixes this on a first visit."
-          : `Lean stopped: ${detail}`}
-      </Text>
-      <Button
-        label={status === "unsupported" ? "Reload" : "Restart Lean"}
-        kind="secondary"
-        onPress={() => (status === "unsupported" ? location.reload() : (lean.retry(), lean.start()))}
-      />
+      <Text style={{ color: t.muted, fontSize: 14 }}>{`Lean isn't reachable: ${detail || status}. Is the ProofReps server running (scripts/start.sh)?`}</Text>
+      <Button label="Try again" kind="secondary" onPress={() => (lean.retry(), lean.start())} />
     </View>
   );
 }

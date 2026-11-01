@@ -89,7 +89,7 @@ export function Settings({ state, commit, replace, onExit }: { state: store.Stat
         }}
       />
       <Text style={{ color: t.muted, fontSize: 12 }}>
-        ProofReps runs Lean 4 (core library) compiled to WebAssembly. Source: github.com/tlehman/ProofReps
+        ProofReps checks answers with Lean 4 and Mathlib on its server. Source: github.com/tlehman/ProofReps
       </Text>
     </ScrollView>
   );

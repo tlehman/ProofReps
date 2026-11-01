@@ -90,7 +90,7 @@ export const u10: Unit = {
           title: "Even plus two",
           body: "To use a hypothesis `h : Even' n`, take it apart: `obtain ⟨k, hk⟩ := h` gives you `k` and `hk : n = 2 * k`. To prove `Even' (n + 2)`, you choose the new witness.",
           prompt: "Prove that adding 2 keeps a number even.",
-          template: EVEN + "\ntheorem even_add_two (n : Nat) (h : Even' n) : Even' (n + 2) := by\n  ___",
+          template: EVEN + "\ntheorem even_plus_two (n : Nat) (h : Even' n) : Even' (n + 2) := by\n  ___",
           solutions: [
             "obtain ⟨k, hk⟩ := h\nexact ⟨k + 1, by omega⟩",
             "obtain ⟨k, hk⟩ := h\nexists k + 1\nomega",

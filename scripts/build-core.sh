@@ -8,6 +8,7 @@ cd "$(dirname "$0")/.."
 # Homebrew's cargo and rustc shadow rustup's and have no wasm target: put the
 # rustup toolchain first.
 # core/rust-toolchain.toml pins the toolchain.
+[ -d "$HOME/.cargo/bin" ] && PATH="$HOME/.cargo/bin:$PATH"
 if command -v rustup >/dev/null 2>&1 && RUSTC=$(cd core && rustup which rustc 2>/dev/null); then
   PATH="$(dirname "$RUSTC"):$PATH"
 fi

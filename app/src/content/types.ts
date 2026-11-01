@@ -1,5 +1,5 @@
 // Course content. Every exercise's Lean is checked by `bun run verify` against
-// the same in-browser Lean the app runs: solutions must pass, wrong answers
+// the same server-side Lean (with Mathlib) the app uses: solutions must pass, wrong answers
 // must fail, and a choice exercise's `verify` source must print what it claims.
 //
 // kinds:
