@@ -1,9 +1,17 @@
 // A Lean code editor that works with a phone keyboard: monospace, no
 // autocorrect, Lean's backslash abbreviations (`\to` → `→`, typed the way
 // VS Code's Lean extension does it), and a bar of symbols to tap.
-import { useRef, useState } from "react";
+//
+// Syntax highlighting (web): the text box's own text is transparent (its caret
+// and selection still show), and a highlighted copy of the same text sits
+// exactly behind it: same font, size, line height, padding and border, no
+// wrapping, scrolled sideways in step with the box.
+import { useEffect, useRef, useState } from "react";
 import { Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { LeanSpans } from "./Code";
 import { mono, useTheme } from "./theme";
+
+const WEB = Platform.OS === "web";
 
 const ABBREV: Record<string, string> = {
   to: "→", r: "→", "->": "→", l: "←", "<-": "←", iff: "↔", "<->": "↔", lr: "↔",
@@ -54,6 +62,26 @@ export function Editor({ value, onChange, onCursor, multiline = true, minLines =
   const [sel, setSel] = useState<{ start: number; end: number }>({ start: value.length, end: value.length });
   const [forced, setForced] = useState<{ start: number; end: number } | undefined>(undefined);
   const lines = Math.max(minLines, value.split("\n").length + (multiline ? 1 : 0));
+  // the text box's scroll offset, mirrored by the highlighted copy (state, not
+  // a DOM write: a re-render would overwrite a hand-set transform)
+  const [scroll, setScroll] = useState({ x: 0, y: 0 });
+
+  // Keep the highlighted copy scrolled with the text box. Bound through the
+  // ref callback, so it follows the element even if it's ever replaced.
+  const unbind = useRef<(() => void) | null>(null);
+  const bindScroll = (r: React.ComponentRef<typeof TextInput> | null) => {
+    input.current = r;
+    const el = r as unknown as HTMLElement | null;
+    if (!WEB || (el && el === (unbind.current as unknown as { el?: HTMLElement })?.el)) return;
+    unbind.current?.();
+    unbind.current = null;
+    if (!el?.addEventListener) return;
+    const sync = () => setScroll((p) => (p.x === el.scrollLeft && p.y === el.scrollTop ? p : { x: el.scrollLeft, y: el.scrollTop }));
+    el.addEventListener("scroll", sync);
+    sync();
+    unbind.current = Object.assign(() => el.removeEventListener("scroll", sync), { el });
+  };
+  useEffect(() => () => unbind.current?.(), []);
 
   const report = (pos: number, text = value) => onCursor?.(text.slice(0, pos).split("\n").length - 1);
 
@@ -68,10 +96,27 @@ export function Editor({ value, onChange, onCursor, multiline = true, minLines =
   };
 
   const border = status === "good" ? t.good : status === "bad" ? t.bad : t.line;
+  const box = { fontFamily: mono, fontSize: 16, lineHeight: 22, padding: 12, borderWidth: 2, borderRadius: 10 } as const;
   return (
     <View style={{ gap: 6 }}>
+      <View style={{ position: "relative", borderRadius: 10, backgroundColor: t.code, overflow: "hidden" }}>
+      {WEB ? (
+        <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, overflow: "hidden" }} aria-hidden>
+          <Text
+            style={{
+              ...box,
+              transform: [{ translateX: -scroll.x }, { translateY: -scroll.y }],
+              borderColor: "transparent",
+              color: t.codeInk,
+              ...({ whiteSpace: "pre", tabSize: 2, fontVariantLigatures: "none", display: "block", width: "max-content", minWidth: "100%" } as object),
+            }}
+          >
+            <LeanSpans code={value + "\n"} flat />
+          </Text>
+        </View>
+      ) : null}
       <TextInput
-        ref={input}
+        ref={bindScroll}
         value={value}
         autoFocus={autoFocus}
         multiline={multiline}
@@ -114,20 +159,27 @@ export function Editor({ value, onChange, onCursor, multiline = true, minLines =
           }
         }}
         style={{
-          fontFamily: mono,
-          fontSize: 16, // under 16px, iOS zooms in on focus
-          lineHeight: 22,
+          ...box, // fontSize 16: under 16px, iOS zooms in on focus
           color: t.codeInk,
-          backgroundColor: t.code,
-          borderWidth: 2,
+          backgroundColor: WEB ? "transparent" : t.code,
           borderColor: border,
-          borderRadius: 10,
-          padding: 12,
           minHeight: multiline ? lines * 22 + 28 : undefined,
           textAlignVertical: "top",
-          ...(Platform.OS === "web" ? ({ outlineStyle: "none", whiteSpace: "pre", overflowX: "auto", tabSize: 2 } as object) : {}),
+          ...(WEB
+            ? ({
+                outlineStyle: "none",
+                whiteSpace: "pre",
+                overflowX: "auto",
+                tabSize: 2,
+                fontVariantLigatures: "none",
+                // the text itself is drawn by the highlighted copy behind
+                color: "transparent",
+                caretColor: t.codeInk,
+              } as object)
+            : {}),
         }}
       />
+      </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" contentContainerStyle={{ gap: 6 }}>
         {SYMBOLS.map((s) => (
           <Pressable

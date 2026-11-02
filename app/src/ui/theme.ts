@@ -18,6 +18,16 @@ const light = {
   code: "#f0eef8",
   codeInk: "#251f4a",
   locked: "#c9c5db",
+  // Lean syntax (src/lean/highlight.ts)
+  synKeyword: "#7c3aed",
+  synTactic: "#0f766e",
+  synType: "#b45309",
+  synComment: "#8a86a3",
+  synString: "#15803d",
+  synNumber: "#c2410c",
+  synOp: "#4b3bc4",
+  synCommand: "#be185d",
+  synSorry: "#d23c3c",
 };
 
 const dark: typeof light = {
@@ -38,6 +48,15 @@ const dark: typeof light = {
   code: "#110d29",
   codeInk: "#e6e2ff",
   locked: "#4a4478",
+  synKeyword: "#c4a7ff",
+  synTactic: "#5eead4",
+  synType: "#fbbf77",
+  synComment: "#8580b0",
+  synString: "#86efac",
+  synNumber: "#fdba74",
+  synOp: "#a5b4fc",
+  synCommand: "#f9a8d4",
+  synSorry: "#ff7b7b",
 };
 
 export type Theme = typeof light;
