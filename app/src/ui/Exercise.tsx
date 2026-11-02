@@ -5,9 +5,10 @@ import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import type { Core } from "../core";
 import type { Exercise as Ex, Fill } from "../content/types";
-import { goalProbe, goalView, judge, source, where, type Message } from "../lean/grade";
+import { goalProbe, goalView, judge, source, tacticHole, where, type Message } from "../lean/grade";
 import * as lean from "../lean/lean";
 import { useLean } from "./useLean";
+import { useStickyGoal } from "./useStickyGoal";
 import { Button } from "./Button";
 import { CodeBlock, GoalBox } from "./Code";
 import { Diagnostics } from "./Diagnostics";
@@ -122,13 +123,13 @@ function LeanExercise({ core, ex, draft, onDraft, onMiss, onDone }: ExerciseProp
   const [result, setResult] = useState<Result | null>(null);
   const [misses, setMisses] = useState(0);
   const [hint, setHint] = useState(false);
-  const [goal, setGoal] = useState<{ goals: string | null; label: string } | null>(null);
+  const { goal, update: showGoal } = useStickyGoal();
   const [gaveUp, setGaveUp] = useState(false);
   const missed = useRef(false);
 
   const [before, after] = ex.template.split("___");
   const holeOnOwnLine = /\n\s*$/.test(before) || before.trim() === "";
-  const tactic = /(\bby|·)\s*$/.test(before);
+  const tactic = tacticHole(ex.template);
 
   // The goal where the cursor is, refreshed when typing pauses.
   useEffect(() => {
@@ -142,14 +143,14 @@ function LeanExercise({ core, ex, draft, onDraft, onMiss, onDone }: ExerciseProp
         const msgs = await lean.probe("goal", cs.src);
         if (!live || !msgs) return;
         const v = goalView(probe, msgs, cs.guardLine);
-        setGoal({ goals: v.goals, label: probe.traceLine == null ? "Expected" : "Goal at cursor" });
+        showGoal(v.goals, probe.traceLine == null ? "Expected" : v.exact ? "Goal at cursor" : "Goals before the cursor");
       } catch {}
-    }, 500);
+    }, 300);
     return () => {
       live = false;
       clearTimeout(timer);
     };
-  }, [answer, row, status.status, result?.kind, core, ex.template]);
+  }, [answer, row, status.status, result?.kind, core, ex.template, showGoal]);
 
   const check = async () => {
     setChecking(true);
@@ -204,7 +205,7 @@ function LeanExercise({ core, ex, draft, onDraft, onMiss, onDone }: ExerciseProp
         {after.trim() ? <CodeBlock code={after.replace(/^\s*\n/, "").replace(/\s+$/, "")} dim /> : null}
       </View>
 
-      {goal && goal.goals != null && !ok ? <GoalBox goals={goal.goals} label={goal.label} /> : null}
+      {goal && !ok ? <GoalBox goals={goal.goals} label={goal.label} stale={goal.stale} /> : null}
 
       {ex.hint && !ok ? (
         hint ? (

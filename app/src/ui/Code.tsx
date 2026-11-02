@@ -13,11 +13,15 @@ export function CodeBlock({ code, dim = false }: { code: string; dim?: boolean }
 }
 
 // A Lean goal state, as an editor's infoview shows it.
-export function GoalBox({ goals, label = "Goal" }: { goals: string; label?: string }) {
+// `stale`: the last goal Lean reported, while the code at the cursor doesn't check yet.
+export function GoalBox({ goals, label = "Goal", stale = false }: { goals: string; label?: string; stale?: boolean }) {
   const t = useTheme();
   return (
-    <View style={{ borderLeftWidth: 3, borderLeftColor: t.brand, backgroundColor: t.brandSoft, borderRadius: 8, padding: 10, gap: 4 }}>
-      <Text style={{ color: t.brand, fontSize: 12, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" }}>{label}</Text>
+    <View style={{ borderLeftWidth: 3, borderLeftColor: stale ? t.muted : t.brand, backgroundColor: t.brandSoft, borderRadius: 8, padding: 10, gap: 4, opacity: stale ? 0.7 : 1 }}>
+      <Text style={{ color: stale ? t.muted : t.brand, fontSize: 12, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" }}>
+        {label}
+        {stale ? <Text style={{ fontWeight: "500", textTransform: "none" }}>{"  · last known, still typing"}</Text> : null}
+      </Text>
       <Text selectable style={{ fontFamily: mono, fontSize: 13, lineHeight: 19, color: t.ink }}>
         {goals || "No goals. Done!"}
       </Text>

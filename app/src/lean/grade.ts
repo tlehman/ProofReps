@@ -74,7 +74,19 @@ export interface GoalProbe {
   traceLine: number | null; // filled-source line of the `trace_state`, if any
 }
 
-const tacticHole = (template: string) => /(\bby|·)\s*$/.test(template.slice(0, template.indexOf("___")));
+// Is the hole where a tactic goes? After `by` or `·`, or after the `=>` of an
+// `induction`/`cases`/`rcases`/`match` alternative inside a tactic block
+// (`| succ n ih => ___`). A term-mode `match` (a `def` body, no `by`) isn't.
+export function tacticHole(template: string): boolean {
+  const before = template.slice(0, template.indexOf("___"));
+  if (/(\bby|·)\s*$/.test(before)) return true;
+  if (!/=>\s*$/.test(before)) return false;
+  const lines = before.split("\n");
+  const w = lines.findLastIndex((l) => /\bwith\s*$/.test(l));
+  if (w < 0 || !/^\s*(induction|cases|rcases|match)\b/.test(lines[w])) return false;
+  const decl = lines.findLastIndex((l, i) => i <= w && /^(?:private\s+)?(theorem|lemma|def|example|instance|abbrev)\b/.test(l));
+  return /\bby\b/.test(lines.slice(Math.max(decl, 0), w + 1).join("\n"));
+}
 
 // Column a tactic after this line goes in: inside `· tac` or `by tac`, after `=>`/`by`.
 function nextIndent(line: string): number {
@@ -99,7 +111,20 @@ export function goalProbe(template: string, answer: string, row: number): GoalPr
 
 export interface GoalView {
   goals: string | null; // null: Lean didn't get there
+  exact: boolean; // the goal right at the cursor (false: the last goals Lean reported before it stopped)
   errors: string[];
+}
+
+const UNSOLVED = /^unsolved goals\n/;
+
+// The goals of the last "unsolved goals" error at or before `line`: when the
+// line being typed doesn't parse or elaborate yet (`exa`, `| succ n ih => sim`),
+// Lean never reaches the `trace_state`, but the block around it still reports
+// the goals it was left with. That's the goal state just before the cursor.
+export function lastUnsolved(messages: Message[], line: number): string | null {
+  const hits = messages.filter((m) => m.severity === "error" && UNSOLVED.test(m.text) && (m.line == null || m.line <= line));
+  const last = hits.sort((a, b) => (a.line ?? 0) - (b.line ?? 0)).pop();
+  return last ? last.text.replace(UNSOLVED, "") : null;
 }
 
 // `end` is the first line after the template (where the guard starts).
@@ -111,10 +136,13 @@ export function goalView(probe: GoalProbe, messages: Message[], end: number): Go
     (m) =>
       m.severity === "error" &&
       !placeholder.test(m.text) &&
-      !(trace && /^unsolved goals/.test(m.text)) &&
+      !(trace && UNSOLVED.test(m.text)) &&
       !(probe.traceLine != null && m.line != null && m.line > probe.traceLine),
   );
   const holes = mine.filter((m) => m.severity === "error" && placeholder.test(m.text)).map((m) => m.text.replace(placeholder, ""));
-  const goals = trace ? trace.text : holes.length ? holes.join("\n\n") : probe.traceLine == null && !errors.length ? "" : null;
-  return { goals, errors: errors.map((m) => m.text) };
+  if (trace) return { goals: trace.text, exact: true, errors: errors.map((m) => m.text) };
+  if (holes.length) return { goals: holes.join("\n\n"), exact: true, errors: errors.map((m) => m.text) };
+  if (probe.traceLine == null && !errors.length) return { goals: "", exact: true, errors: [] };
+  const before = probe.traceLine == null ? null : lastUnsolved(mine, probe.traceLine);
+  return { goals: before, exact: false, errors: errors.map((m) => m.text) };
 }

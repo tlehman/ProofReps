@@ -2,13 +2,14 @@
 // cursor, as you type.
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import type { Message } from "../lean/grade";
+import { lastUnsolved, type Message } from "../lean/grade";
 import * as lean from "../lean/lean";
 import { GoalBox } from "./Code";
 import { Diagnostics } from "./Diagnostics";
 import { Editor } from "./Editor";
 import { LeanTrouble } from "./Exercise";
 import { useLean } from "./useLean";
+import { useStickyGoal } from "./useStickyGoal";
 import { useTheme } from "./theme";
 
 export const SAMPLE = `-- A scratch file. Lean checks it as you type.
@@ -55,7 +56,7 @@ export function Playground({ initial, onSave, onExit }: { initial: string; onSav
   const [code, setCode] = useState(initial || SAMPLE);
   const [row, setRow] = useState(0);
   const [messages, setMessages] = useState<Message[] | null>(null);
-  const [goal, setGoal] = useState<string | null>(null);
+  const { goal, update: showGoal } = useStickyGoal();
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -64,26 +65,27 @@ export function Playground({ initial, onSave, onExit }: { initial: string; onSav
     const timer = setTimeout(async () => {
       setBusy(true);
       try {
-        const ms = await lean.probe("file", code);
+        // the whole file and the goal at the cursor, side by side on the server
+        const g = goalSource(code, row);
+        const [ms, gm] = await Promise.all([lean.probe("file", code), g ? lean.probe("goal", g.src) : null]);
         if (!live) return;
         if (ms) setMessages(ms);
-        const g = goalSource(code, row);
-        if (g) {
-          const gm = await lean.probe("goal", g.src);
-          const tr = gm?.find((m) => m.severity === "information" && m.line === g.line);
-          if (live && gm) setGoal(tr ? tr.text : null);
-        } else setGoal(null);
+        if (g && gm) {
+          const tr = gm.find((m) => m.severity === "information" && m.line === g.line);
+          const before = tr ? null : lastUnsolved(gm, g.line);
+          showGoal(tr ? tr.text : before, tr ? `Goal at line ${row + 1}` : `Goals before line ${row + 1}`);
+        } else if (!g) showGoal(null, "");
       } catch (e) {
         if (live) setMessages([{ severity: "error", text: (e as Error).message }]);
       } finally {
         if (live) setBusy(false);
       }
-    }, 600);
+    }, 300);
     return () => {
       live = false;
       clearTimeout(timer);
     };
-  }, [code, row, status]);
+  }, [code, row, status, showGoal]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -107,7 +109,7 @@ export function Playground({ initial, onSave, onExit }: { initial: string; onSav
           onCursor={setRow}
           minLines={12}
         />
-        {goal != null ? <GoalBox goals={goal} label={`Goal at line ${row + 1}`} /> : null}
+        {goal ? <GoalBox goals={goal.goals} label={goal.label} stale={goal.stale} /> : null}
         {status === "failed" ? <LeanTrouble /> : null}
         {messages && !messages.length ? <Text style={{ color: t.good, fontWeight: "700" }}>No errors, no messages.</Text> : null}
         {messages ? <Diagnostics messages={messages} /> : null}
